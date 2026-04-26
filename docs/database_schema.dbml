@@ -1,0 +1,321 @@
+// Use dbdiagram.io to visualize this schema
+// Copy and paste the content below into the dbdiagram.io editor
+
+Enum Role {
+  OWNER
+  TRAINER
+  MEMBER
+}
+
+Enum PlanType {
+  BASIC
+  PRO
+  ELITE
+}
+
+Enum PlanStatus {
+  ACTIVE
+  EXPIRING
+  EXPIRED
+}
+
+Enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+Enum Availability {
+  AVAILABLE
+  BUSY
+  OFF
+}
+
+Enum Method {
+  QR
+  MANUAL
+}
+
+Enum InvoiceStatus {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+Enum BookingStatus {
+  CONFIRMED
+  PENDING
+  CANCELLED
+}
+
+Enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+Enum FitnessGoal {
+  FAT_LOSS
+  MUSCLE_GAIN
+  MAINTENANCE
+  ENDURANCE
+  FLEXIBILITY
+}
+
+Enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+Enum DietaryPreference {
+  VEG
+  NON_VEG
+  VEGAN
+  EGGETARIAN
+  PESCATARIAN
+}
+
+Table User {
+  id String [pk]
+  name String
+  email String [unique]
+  emailVerified DateTime
+  image String
+  password String
+  role Role [default: 'MEMBER']
+  phone String
+  createdAt DateTime [default: `now()`]
+  updatedAt DateTime
+}
+
+Table Member {
+  id String [pk]
+  joinDate DateTime
+  plan PlanType
+  planExpiry DateTime
+  planStatus PlanStatus
+  trainerId String
+  healthNotes String
+  attendanceCount Int [default: 0]
+  sessionsRemaining Int [default: 0]
+  age Int
+  gender Gender
+}
+
+Table Trainer {
+  id String [pk]
+  specialization String
+  rating Float [default: 0]
+  reviewCount Int [default: 0]
+  memberCount Int [default: 0]
+  availability Availability
+  schedule Json
+}
+
+Table AttendanceRecord {
+  id String [pk]
+  memberId String
+  date DateTime
+  checkIn DateTime
+  checkOut DateTime
+  method Method
+}
+
+Table Invoice {
+  id String [pk]
+  memberId String
+  plan PlanType
+  amount Int
+  date DateTime
+  status InvoiceStatus
+  createdAt DateTime [default: `now()`]
+}
+
+Table WorkoutPlan {
+  id String [pk]
+  memberId String
+  trainerId String
+  day String
+  notes Text
+  createdAt DateTime [default: `now()`]
+}
+
+Table Exercise {
+  id String [pk]
+  workoutPlanId String
+  name String
+  sets Int
+  reps String
+  rest String
+  notes String
+}
+
+Table SessionLog {
+  id String [pk]
+  memberId String
+  trainerId String
+  date DateTime
+  duration Int
+  exercises String[]
+  notes Text
+  completed Boolean
+  createdAt DateTime [default: `now()`]
+}
+
+Table Review {
+  id String [pk]
+  trainerId String
+  memberId String
+  rating Int
+  feedback String
+  date DateTime
+}
+
+Table Booking {
+  id String [pk]
+  memberId String
+  trainerId String
+  date DateTime
+  time String
+  status BookingStatus
+  createdAt DateTime [default: `now()`]
+}
+
+Table NutritionProfile {
+  id String [pk]
+  memberId String [unique]
+  age Int
+  weight Float
+  height Float
+  fitnessGoal FitnessGoal
+  activityLevel ActivityLevel
+  dietaryPreference DietaryPreference
+  cuisinePreference String
+  usualDiet Text
+  allergies String[]
+  restrictions String[]
+  targetCalories Int
+  targetProtein Float
+  targetCarbs Float
+  targetFat Float
+  completed Boolean [default: false]
+  createdAt DateTime [default: `now()`]
+  updatedAt DateTime
+}
+
+Table MealPlan {
+  id String [pk]
+  memberId String
+  date DateTime
+  totalCalories Int
+  totalProtein Int
+  totalCarbs Int
+  totalFat Int
+}
+
+Table Meal {
+  id String [pk]
+  mealPlanId String
+  type MealType
+  name String
+  description String
+  calories Int
+  protein Int
+  carbs Int
+  fat Int
+  completed Boolean
+}
+
+Table Account {
+  id String [pk]
+  userId String
+  type String
+  provider String
+  providerAccountId String
+  refresh_token String
+  access_token String
+  expires_at Int
+  token_type String
+  scope String
+  id_token String
+  session_state String
+
+  indexes {
+    (provider, providerAccountId) [unique]
+  }
+}
+
+Table Session {
+  id String [pk]
+  sessionToken String [unique]
+  userId String
+  expires DateTime
+}
+
+Table VerificationToken {
+  id String [pk]
+  identifier String
+  token String [unique]
+  expires DateTime
+
+  indexes {
+    (identifier, token) [unique]
+  }
+}
+
+Table Equipment {
+  id String [pk]
+  name String
+  category String
+  status String
+  lastMaintenance DateTime
+  nextMaintenance DateTime
+  purchaseDate DateTime
+  createdAt DateTime [default: `now()`]
+  updatedAt DateTime
+}
+
+Table MaintenanceRecord {
+  id String [pk]
+  equipmentId String
+  date DateTime
+  type String
+  description String
+  cost Float
+  performedBy String
+}
+
+Table Notification {
+  id String [pk]
+  userId String
+  title String
+  message String
+  read Boolean [default: false]
+  createdAt DateTime [default: `now()`]
+}
+
+Ref: Member.id - User.id [delete: cascade]
+Ref: Trainer.id - User.id [delete: cascade]
+Ref: Member.trainerId > Trainer.id
+Ref: AttendanceRecord.memberId > Member.id [delete: cascade]
+Ref: Invoice.memberId > Member.id [delete: cascade]
+Ref: WorkoutPlan.memberId > Member.id [delete: cascade]
+Ref: WorkoutPlan.trainerId > Trainer.id [delete: cascade]
+Ref: Exercise.workoutPlanId > WorkoutPlan.id [delete: cascade]
+Ref: SessionLog.memberId > Member.id [delete: cascade]
+Ref: SessionLog.trainerId > Trainer.id [delete: cascade]
+Ref: Review.trainerId > Trainer.id [delete: cascade]
+Ref: Review.memberId > Member.id
+Ref: Booking.memberId > Member.id [delete: cascade]
+Ref: Booking.trainerId > Trainer.id [delete: cascade]
+Ref: NutritionProfile.memberId - Member.id [delete: cascade]
+Ref: MealPlan.memberId > Member.id [delete: cascade]
+Ref: Meal.mealPlanId > MealPlan.id [delete: cascade]
+Ref: Account.userId > User.id [delete: cascade]
+Ref: Session.userId > User.id [delete: cascade]
+Ref: MaintenanceRecord.equipmentId > Equipment.id [delete: cascade]
+Ref: Notification.userId > User.id [delete: cascade]

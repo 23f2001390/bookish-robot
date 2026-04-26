@@ -1,0 +1,361 @@
+@startuml
+hide empty methods
+hide circle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+title SoulRep Gym Management System - Class Diagram
+
+package "Identity & Roles" {
+  class User {
+    +id: string
+    +name: string?
+    +email: string?
+    +emailVerified: DateTime?
+    +image: string?
+    +password: string?
+    +role: Role
+    +phone: string?
+    +createdAt: DateTime
+    +updatedAt: DateTime
+  }
+
+  class Member {
+    +id: string
+    +joinDate: DateTime
+    +plan: PlanType
+    +planExpiry: DateTime
+    +planStatus: PlanStatus
+    +trainerId: string?
+    +healthNotes: string?
+    +attendanceCount: int
+    +sessionsRemaining: int
+    +age: int
+    +gender: Gender
+  }
+
+  class Trainer {
+    +id: string
+    +specialization: string
+    +rating: float
+    +reviewCount: int
+    +memberCount: int
+    +availability: Availability
+    +schedule: json?
+  }
+
+  class Account {
+    +id: string
+    +userId: string
+    +type: string
+    +provider: string
+    +providerAccountId: string
+    +refresh_token: string?
+    +access_token: string?
+    +expires_at: int?
+    +token_type: string?
+    +scope: string?
+    +id_token: string?
+    +session_state: string?
+  }
+
+  class Session {
+    +id: string
+    +sessionToken: string
+    +userId: string
+    +expires: DateTime
+  }
+
+  class VerificationToken {
+    +id: string
+    +identifier: string
+    +token: string
+    +expires: DateTime
+  }
+
+  class Notification {
+    +id: string
+    +userId: string
+    +title: string
+    +message: string
+    +read: boolean
+    +createdAt: DateTime
+  }
+}
+
+package "Workout & Attendance" {
+  class AttendanceRecord {
+    +id: string
+    +memberId: string
+    +date: DateTime
+    +checkIn: DateTime
+    +checkOut: DateTime?
+    +method: Method
+  }
+
+  class WorkoutPlan {
+    +id: string
+    +memberId: string
+    +trainerId: string
+    +day: string
+    +notes: string?
+    +createdAt: DateTime
+  }
+
+  class Exercise {
+    +id: string
+    +workoutPlanId: string
+    +name: string
+    +sets: int
+    +reps: string
+    +rest: string
+    +notes: string?
+  }
+
+  class SessionLog {
+    +id: string
+    +memberId: string
+    +trainerId: string
+    +date: DateTime
+    +duration: int
+    +exercises: string[]
+    +notes: string?
+    +completed: boolean
+    +createdAt: DateTime
+  }
+
+  class Booking {
+    +id: string
+    +memberId: string
+    +trainerId: string
+    +date: DateTime
+    +time: string
+    +status: BookingStatus
+    +createdAt: DateTime
+  }
+
+  class Review {
+    +id: string
+    +trainerId: string
+    +memberId: string?
+    +rating: int
+    +feedback: string
+    +date: DateTime
+  }
+
+  class Invoice {
+    +id: string
+    +memberId: string
+    +plan: PlanType
+    +amount: int
+    +date: DateTime
+    +status: InvoiceStatus
+    +createdAt: DateTime
+  }
+}
+
+package "Nutrition" {
+  class NutritionProfile {
+    +id: string
+    +memberId: string
+    +age: int?
+    +weight: float?
+    +height: float?
+    +fitnessGoal: FitnessGoal
+    +activityLevel: ActivityLevel
+    +dietaryPreference: DietaryPreference
+    +cuisinePreference: string?
+    +usualDiet: string?
+    +allergies: string[]
+    +restrictions: string[]
+    +targetCalories: int?
+    +targetProtein: float?
+    +targetCarbs: float?
+    +targetFat: float?
+    +completed: boolean
+    +createdAt: DateTime
+    +updatedAt: DateTime
+  }
+
+  class MealPlan {
+    +id: string
+    +memberId: string
+    +date: DateTime
+    +totalCalories: int
+    +totalProtein: int
+    +totalCarbs: int
+    +totalFat: int
+  }
+
+  class Meal {
+    +id: string
+    +mealPlanId: string
+    +type: MealType
+    +name: string
+    +description: string
+    +calories: int
+    +protein: int
+    +carbs: int
+    +fat: int
+    +completed: boolean
+  }
+}
+
+package "Operations" {
+  class Equipment {
+    +id: string
+    +name: string
+    +category: string
+    +status: string
+    +lastMaintenance: DateTime?
+    +nextMaintenance: DateTime?
+    +purchaseDate: DateTime?
+    +createdAt: DateTime
+    +updatedAt: DateTime
+  }
+
+  class MaintenanceRecord {
+    +id: string
+    +equipmentId: string
+    +date: DateTime
+    +type: string
+    +description: string
+    +cost: float?
+    +performedBy: string?
+  }
+}
+
+package "Frontend Scheduling View" {
+  class WeeklySchedule <<domain>> {
+    +[day: string]: TimeSlot[]
+  }
+
+  class TimeSlot <<domain>> {
+    +start: string
+    +end: string
+    +memberId: string?
+    +memberName: string?
+    +type: SlotType
+  }
+}
+
+enum Role {
+  OWNER
+  TRAINER
+  MEMBER
+}
+
+enum PlanType {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum PlanStatus {
+  ACTIVE
+  EXPIRING
+  EXPIRED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Availability {
+  AVAILABLE
+  BUSY
+  OFF
+}
+
+enum Method {
+  QR
+  MANUAL
+}
+
+enum InvoiceStatus {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+enum BookingStatus {
+  CONFIRMED
+  PENDING
+  CANCELLED
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum FitnessGoal {
+  FAT_LOSS
+  MUSCLE_GAIN
+  MAINTENANCE
+  ENDURANCE
+  FLEXIBILITY
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum DietaryPreference {
+  VEG
+  NON_VEG
+  VEGAN
+  EGGETARIAN
+  PESCATARIAN
+}
+
+enum SlotType {
+  session
+  break
+  available
+}
+
+User "1" *-- "0..1" Member : profile
+User "1" *-- "0..1" Trainer : profile
+User "1" --> "0..*" Account : linked
+User "1" --> "0..*" Session : owns
+User "1" --> "0..*" Notification : receives
+
+Trainer "1" --> "0..*" Member : trains
+Trainer "1" --> "0..*" WorkoutPlan : creates
+Trainer "1" --> "0..*" SessionLog : conducts
+Trainer "1" --> "0..*" Booking : assigned
+Trainer "1" --> "0..*" Review : receives
+Trainer "1" --> "1" WeeklySchedule : exposes
+
+WeeklySchedule "1" *-- "0..*" TimeSlot : contains
+
+Member "1" --> "0..*" AttendanceRecord : has
+Member "1" --> "0..*" Invoice : billed
+Member "1" --> "0..*" WorkoutPlan : follows
+Member "1" --> "0..*" SessionLog : logs
+Member "1" --> "0..*" Booking : makes
+Member "1" --> "0..*" Review : writes
+Member "1" --> "0..1" NutritionProfile : has
+Member "1" --> "0..*" MealPlan : receives
+
+WorkoutPlan "1" *-- "0..*" Exercise : contains
+MealPlan "1" *-- "0..*" Meal : includes
+Equipment "1" --> "0..*" MaintenanceRecord : has
+
+note right of WeeklySchedule
+Frontend/domain schedule model.
+Trainer.schedule is persisted as JSON
+in the database schema.
+end note
+
+@enduml

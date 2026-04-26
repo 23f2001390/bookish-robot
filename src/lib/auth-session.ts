@@ -1,0 +1,1 @@
+export { getAuthSession } from "@/backend/shared/auth-session";

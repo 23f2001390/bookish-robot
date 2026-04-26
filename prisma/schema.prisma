@@ -1,0 +1,401 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Base User record. Every member and trainer is associated with a User. The
+/// owner account will also live here. Passwords are stored as hashed
+/// strings using a strong password hash (e.g. bcrypt – see the README).
+model User {
+  id            String         @id @default(uuid())
+  /// User's name. Optional because some accounts may not provide a name (e.g. Google sign‑in without profile name).
+  name          String?
+  /// Email address. Optional because OAuth providers may not always return an email.
+  email         String?        @unique
+  /// Timestamp when the email was verified, null when unverified.
+  emailVerified DateTime?
+  /// Profile image URL returned from OAuth providers or user upload.
+  image         String?
+  /// Hashed password for email/password accounts. Optional for OAuth accounts.
+  password      String?
+  /// The role of the user (OWNER, TRAINER, MEMBER). Defaults to MEMBER for newly
+  /// created OAuth accounts such as Google sign‑ins. Required for access control.
+  role          Role           @default(MEMBER)
+  /// Optional phone number for the user.
+  phone         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  accounts      Account[]
+  Member        Member?
+  notifications Notification[]
+  sessions      Session[]
+  Trainer       Trainer?
+}
+
+/// Member contains additional data for users with the MEMBER role. The
+/// primary key is the same as the associated User id.
+model Member {
+  id                String             @id
+  joinDate          DateTime
+  plan              PlanType
+  planExpiry        DateTime
+  planStatus        PlanStatus
+  trainerId         String?
+  healthNotes       String?
+  attendanceCount   Int                @default(0)
+  sessionsRemaining Int                @default(0)
+  age               Int
+  gender            Gender
+  Attendance        AttendanceRecord[]
+  Booking           Booking[]
+  Invoice           Invoice[]
+  MealPlans         MealPlan[]
+  user              User               @relation(fields: [id], references: [id], onDelete: Cascade)
+  trainer           Trainer?           @relation("TrainerMembers", fields: [trainerId], references: [id])
+  NutritionProfile  NutritionProfile?
+  Review            Review[]
+  SessionLog        SessionLog[]
+  WorkoutPlan       WorkoutPlan[]
+}
+
+/// Trainer contains additional data for users with the TRAINER role. The
+/// primary key is the same as the associated User id. The schedule field
+/// stores the weekly schedule as JSON; see the README for the expected shape.
+model Trainer {
+  id             String        @id
+  specialization String
+  rating         Float         @default(0)
+  reviewCount    Int           @default(0)
+  memberCount    Int           @default(0)
+  availability   Availability
+  schedule       Json?
+  Booking        Booking[]
+  Members        Member[]      @relation("TrainerMembers")
+  Review         Review[]
+  SessionLog     SessionLog[]
+  user           User          @relation(fields: [id], references: [id], onDelete: Cascade)
+  WorkoutPlan    WorkoutPlan[]
+}
+
+/// AttendanceRecord stores each check‑in/out event for a member.
+model AttendanceRecord {
+  id       String    @id @default(uuid())
+  memberId String
+  date     DateTime
+  method   Method
+  checkIn  DateTime
+  checkOut DateTime?
+  member   Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+/// Invoice records payments for membership plans.
+model Invoice {
+  id        String        @id @default(uuid())
+  memberId  String
+  plan      PlanType
+  amount    Int
+  date      DateTime
+  status    InvoiceStatus
+  createdAt DateTime      @default(now())
+  member    Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+/// WorkoutPlan stores a set of exercises for a particular member on a
+/// particular day, created by a trainer.
+model WorkoutPlan {
+  id        String     @id @default(uuid())
+  memberId  String
+  trainerId String
+  day       String
+  notes     String?
+  createdAt DateTime   @default(now())
+  exercises Exercise[]
+  member    Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer   Trainer    @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+}
+
+/// Exercise is a single exercise definition within a workout plan.
+model Exercise {
+  id            String      @id @default(uuid())
+  workoutPlanId String
+  name          String
+  sets          Int
+  reps          String
+  rest          String
+  notes         String?
+  workoutPlan   WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+}
+
+/// SessionLog captures the outcome of a training session between a trainer and a member.
+model SessionLog {
+  id        String   @id @default(uuid())
+  memberId  String
+  trainerId String
+  date      DateTime
+  time      String?
+  duration  Int
+  exercises String[]
+  notes     String?
+  completed Boolean
+  createdAt DateTime @default(now())
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer   Trainer  @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+}
+
+/// Review allows members to leave feedback for their trainers.
+model Review {
+  id        String   @id @default(uuid())
+  trainerId String
+  memberId  String?
+  rating    Int
+  feedback  String
+  date      DateTime
+  member    Member?  @relation(fields: [memberId], references: [id])
+  trainer   Trainer  @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+}
+
+/// Booking reserves a training slot for a member with a trainer.
+model Booking {
+  id        String        @id @default(uuid())
+  memberId  String
+  trainerId String
+  date      DateTime
+  time      String
+  status    BookingStatus
+  createdAt DateTime      @default(now())
+  member    Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer   Trainer       @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+}
+
+/// NutritionProfile stores high‑level nutrition preferences for a member.
+model NutritionProfile {
+  id                String            @id @default(uuid())
+  memberId          String            @unique
+  age               Int?
+  weight            Float?
+  height            Float?
+  fitnessGoal       FitnessGoal
+  activityLevel     ActivityLevel
+  dietaryPreference DietaryPreference
+  allergies         String[]
+  restrictions      String[]
+  completed         Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  cuisinePreference String?
+  targetCalories    Int?
+  targetCarbs       Float?
+  targetFat         Float?
+  targetProtein     Float?
+  updatedAt         DateTime          @updatedAt
+  usualDiet         String?
+  member            Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+/// MealPlan aggregates meals for a given date and member.
+model MealPlan {
+  id            String   @id @default(uuid())
+  memberId      String
+  date          DateTime
+  totalCalories Int
+  totalProtein  Int
+  totalCarbs    Int
+  totalFat      Int
+  meals         Meal[]
+  member        Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+/// Meal defines an individual meal within a meal plan.
+model Meal {
+  id          String   @id @default(uuid())
+  mealPlanId  String
+  type        MealType
+  name        String
+  description String
+  calories    Int
+  protein     Int
+  carbs       Int
+  fat         Int
+  completed   Boolean
+  mealPlan    MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+}
+
+/// The Account model is used by NextAuth to store OAuth provider accounts associated with users. Each unique
+/// provider and providerAccountId pair identifies an external account. Additional tokens (access_token,
+/// refresh_token, id_token) are stored for convenience. If you don't use OAuth providers, this model can still
+/// exist without being used.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  /// Type of account (e.g. OAuth). See the NextAuth docs for possible values.
+  type              String
+  /// Name of the provider (e.g. google).
+  provider          String
+  /// The provider account id from the OAuth provider.
+  providerAccountId String
+  refresh_token     String? @db.VarChar(512)
+  access_token      String? @db.VarChar(512)
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.VarChar(2048)
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+/// The Session model is used by NextAuth when using the database session strategy. Since we use JWT sessions
+/// in this project, sessions may remain unused, but are defined here for completeness. They can also be
+/// populated by other adapters if needed.
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// The VerificationToken model is used by NextAuth to support features such as email verification and password
+/// reset flows. It stores tokens and their expiration timestamps. The combination of identifier and token
+/// fields must be unique.
+model VerificationToken {
+  id         String   @id @default(cuid())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Equipment represents gym machinery or resources.
+model Equipment {
+  id              String              @id @default(uuid())
+  name            String
+  category        String
+  status          String
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+  purchaseDate    DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  maintenanceLogs MaintenanceRecord[]
+}
+
+/// MaintenanceRecord stores history of repairs and checks for equipment.
+model MaintenanceRecord {
+  id          String    @id @default(uuid())
+  equipmentId String
+  date        DateTime
+  type        String
+  description String
+  cost        Float?
+  performedBy String?
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+/// Notification stores in-app alerts for users.
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Role identifies the type of user. It is kept in a separate enum to
+/// support role‑based access control in the application.
+enum Role {
+  OWNER
+  TRAINER
+  MEMBER
+}
+
+/// PlanType enumerates the subscription plans available for members.
+enum PlanType {
+  BASIC
+  PRO
+  ELITE
+}
+
+/// PlanStatus captures whether a member's plan is active, expiring soon or expired.
+enum PlanStatus {
+  ACTIVE
+  EXPIRING
+  EXPIRED
+}
+
+/// Gender identifies the gender of a member. It is optional in the Member
+/// record, but defining an enum helps avoid inconsistent string values.
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+/// Trainer availability status. Trainers can be available, busy, or off.
+enum Availability {
+  AVAILABLE
+  BUSY
+  OFF
+}
+
+/// Attendance method used to check into the gym.
+enum Method {
+  QR
+  MANUAL
+}
+
+/// InvoiceStatus represents the payment state of an invoice.
+enum InvoiceStatus {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+/// BookingStatus describes whether a booking has been confirmed, is pending or was cancelled.
+enum BookingStatus {
+  CONFIRMED
+  PENDING
+  CANCELLED
+}
+
+/// MealType identifies the type of meal (breakfast, lunch, dinner or snack).
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+/// FitnessGoal captures the member's primary goal: fat loss, muscle gain, maintenance, endurance or flexibility.
+enum FitnessGoal {
+  FAT_LOSS
+  MUSCLE_GAIN
+  MAINTENANCE
+  ENDURANCE
+  FLEXIBILITY
+}
+
+/// ActivityLevel records how active a member is outside of the gym.
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+/// DietaryPreference stores the member's dietary restrictions/preferences.
+enum DietaryPreference {
+  VEG
+  NON_VEG
+  VEGAN
+  EGGETARIAN
+  PESCATARIAN
+}

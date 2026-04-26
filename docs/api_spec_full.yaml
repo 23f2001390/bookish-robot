@@ -1,0 +1,744 @@
+openapi: 3.0.3
+info:
+  title: SoulRep Gym Management API
+  description: |
+    Complete API suite for SoulRep Gym.
+    Covers Auth, Member Dashboard, Owner Analytics, and Trainer Operations.
+  version: 2.1.0
+servers:
+  - url: http://localhost:3000/api
+paths:
+  /auth/reset-password:
+    post:
+      summary: Reset user password
+      description: Verifies user by email and phone to reset password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, phone, newPassword]
+              properties:
+                email: { type: string }
+                phone: { type: string }
+                newPassword: { type: string }
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '400': { description: Missing required fields }
+        '404': { description: No account found }
+
+  /auth/{nextauth}:
+    get:
+      summary: NextAuth route
+      parameters:
+        - name: nextauth
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: OK } }
+
+  /member/attendance:
+    get:
+      summary: Get member attendance records
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer }
+          description: Limit number of records returned
+      responses:
+        '200':
+          description: List of attendance records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/AttendanceRecord' } }
+    post:
+      summary: Mark member attendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, description: "Static QR Code value" }
+      responses:
+        '201':
+          description: Attendance marked successfully
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceRecord' }
+        '400': { description: Invalid code or already checked in }
+
+  /member/bookings:
+    get:
+      summary: Get member bookings
+      parameters:
+        - name: upcoming
+          in: query
+          schema: { type: boolean }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED] }
+        - name: trainerId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Booking' } }
+    post:
+      summary: Create session booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trainerId, date, time]
+              properties:
+                trainerId: { type: string }
+                date: { type: string, format: date }
+                time: { type: string, example: "09:00" }
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Booking' }
+        '403': { description: No sessions remaining }
+
+  /member/invoices:
+    get:
+      summary: Get member invoices
+      responses:
+        '200':
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Invoice' }
+
+  /member/invoices/{id}:
+    get:
+      summary: Get invoice details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Detailed invoice
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+
+  /member/meal-plan:
+    get:
+      summary: Get current meal plan
+      responses:
+        '200':
+          description: Meal plan data
+          content:
+            application/json:
+              schema: { type: object }
+
+  /member/nutrition:
+    get:
+      summary: Get nutrition logs and AI generated diet plan
+      responses:
+        '200':
+          description: Current nutrition profile and active diet plans
+          content:
+            application/json:
+              schema: { type: object }
+    post:
+      summary: Update nutrition parameters and trigger AI generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                age: { type: integer, nullable: true }
+                weight: { type: number, nullable: true }
+                height: { type: number, nullable: true }
+                fitnessGoal: { type: string }
+                activityLevel: { type: string }
+                dietaryPreference: { type: string }
+                cuisinePreference: { type: string }
+                usualDiet: { type: string }
+                allergies: { type: array, items: { type: string } }
+                restrictions: { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: AI generation complete or in progress
+          content:
+            application/json:
+              schema: { type: object }
+
+  /member/nutrition-profile:
+    get:
+      summary: Get nutrition profile
+      responses:
+        '200':
+          description: Nutrition profile details
+          content:
+            application/json:
+              schema: { type: object }
+
+  /member/profile:
+    get:
+      summary: Get member profile
+      responses:
+        '200':
+          description: Member profile and user details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  member: { $ref: '#/components/schemas/Member' }
+    patch:
+      summary: Update member profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                age: { type: integer }
+                gender: { type: string, enum: [MALE, FEMALE, OTHER] }
+                password: { type: string }
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  member: { $ref: '#/components/schemas/Member' }
+
+  /member/reviews:
+    get:
+      summary: Get reviews submitted by member
+      responses:
+        '200': { description: List of reviews }
+    post:
+      summary: Submit trainer review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trainerId, rating]
+              properties:
+                trainerId: { type: string }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string }
+      responses:
+        '201': { description: Review submitted }
+
+  /member/session-logs:
+    get:
+      summary: Get completed session logs
+      responses:
+        '200': { description: List of session logs }
+
+  /member/trainer:
+    get:
+      summary: Get assigned trainer details
+      responses:
+        '200':
+          description: Trainer info
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Trainer'
+                  - type: object
+                    properties: 
+                      data: { type: object, nullable: true }
+                      message: { type: string }
+
+  /member/trainers:
+    get:
+      summary: List all trainers
+      responses:
+        '200':
+          description: List of trainers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Trainer' }
+
+  /member/workout-plans:
+    get:
+      summary: Get assigned workout plans
+      responses:
+        '200':
+          description: List of workout plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/WorkoutPlan' }
+
+  /notifications:
+    get:
+      summary: Get user notifications
+      responses:
+        '200': { description: List of notifications }
+    patch:
+      summary: Mark notification as read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                readAll: { type: boolean }
+      responses:
+        '200': { description: Updated }
+
+  /owner/attendance:
+    get:
+      summary: View gym attendance stats
+      responses:
+        '200': { description: Stats }
+    post:
+      summary: Bulk upload attendance (optional)
+      responses:
+        '200': { description: Uploaded }
+
+  /owner/equipment:
+    get:
+      summary: List workout equipment
+      responses:
+        '200':
+          description: Equipment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Equipment' }
+    post:
+      summary: Add new equipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, category]
+              properties:
+                name: { type: string }
+                category: { type: string }
+                status: { type: string }
+                purchaseDate: { type: string, format: date }
+      responses:
+        '201': { description: Created }
+    patch:
+      summary: Update equipment status/maintenance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+                status: { type: string }
+                maintenance:
+                  type: object
+                  properties:
+                    type: { type: string }
+                    description: { type: string }
+                    cost: { type: number }
+                    performedBy: { type: string }
+      responses:
+        '200': { description: Updated }
+
+  /owner/expiring-members:
+    get:
+      summary: Get members with upcoming plan expiry
+      responses:
+        '200': { description: List of members }
+
+  /owner/invoices:
+    get:
+      summary: List all invoices
+      responses:
+        '200': { description: Invoices }
+    post:
+      summary: Create manual invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [memberId, plan, amount]
+              properties:
+                memberId: { type: string }
+                plan: { type: string }
+                amount: { type: number }
+      responses:
+        '201': { description: Created }
+
+  /owner/invoices/{id}:
+    patch:
+      summary: Update invoice status (PAID/CANCELLED)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [PAID, CANCELLED, PENDING] }
+      responses:
+        '200': { description: Status updated }
+
+  /owner/kpi:
+    get:
+      summary: Get gym business KPIs
+      responses:
+        '200': { description: KPI numbers }
+
+  /owner/members:
+    get:
+      summary: List all gym members
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Member' }
+    patch:
+      summary: Update member details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [memberId]
+              properties:
+                memberId: { type: string }
+                plan: { type: string }
+                trainerId: { type: string }
+                planStatus: { type: string }
+                sessionsRemaining: { type: integer }
+                planExpiry: { type: string, format: date }
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete member account
+      parameters:
+        - name: memberId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Deleted }
+
+  /owner/profile:
+    get:
+      summary: Get owner profile
+      responses: { '200': { description: Profile } }
+    patch:
+      summary: Update owner profile
+      responses: { '200': { description: Updated } }
+
+  /owner/revenue:
+    get:
+      summary: Get revenue analytics
+      responses: { '200': { description: Revenue data } }
+
+  /owner/trainer-ratings:
+    get:
+      summary: Get rating overview for all trainers
+      responses: { '200': { description: Ratings } }
+
+  /owner/trainers:
+    get:
+      summary: List all trainers (Owner view)
+      responses: { '200': { description: Trainers } }
+    post:
+      summary: Add new trainer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, specialization, password]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                phone: { type: string }
+                specialization: { type: string }
+                password: { type: string }
+      responses:
+        '201': { description: Created }
+
+  /owner/trainers/{trainerId}/members:
+    get:
+      summary: List members assigned to trainer
+      parameters:
+        - name: trainerId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: List of members }
+
+  /owner/trainers/{trainerId}/reviews:
+    get:
+      summary: Get reviews for specific trainer
+      parameters:
+        - name: trainerId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Reviews }
+
+  /signup:
+    post:
+      summary: Register new member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                phone: { type: string }
+                password: { type: string }
+      responses:
+        '201': { description: Registered }
+
+  /test_auth:
+    get: { summary: Check auth status, responses: { '200': { description: OK } } }
+
+  /trainer/bookings/{bookingId}:
+    patch:
+      summary: Update booking status
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [CONFIRM, COMPLETE] }
+                notes: { type: string }
+      responses:
+        '200': { description: Updated }
+
+  /trainer/members:
+    get:
+      summary: List members assigned to this trainer
+      responses: { '200': { description: Members } }
+
+  /trainer/members/{memberId}/workout-plans:
+    get:
+      summary: Get workout plans for specific member
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Plans }
+    post:
+      summary: Create workout plan for member
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [day, exercises]
+              properties:
+                day: { type: string }
+                notes: { type: string }
+                exercises:
+                  type: array
+                  items:
+                    type: object
+                    required: [name, sets, reps, rest]
+                    properties:
+                      name: { type: string }
+                      sets: { type: integer }
+                      reps: { type: string }
+                      rest: { type: string }
+                      notes: { type: string }
+      responses:
+        '201': { description: Created }
+
+  /trainer/members/{memberId}/workout-plans/{planId}:
+    delete:
+      summary: Delete workout plan
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: planId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Deleted }
+
+  /trainer/profile:
+    get: { summary: Get trainer profile, responses: { '200': { description: Profile } } }
+    patch: { summary: Update trainer profile, responses: { '200': { description: Updated } } }
+
+  /trainer/reviews:
+    get: { summary: Get reviews for this trainer, responses: { '200': { description: Reviews } } }
+
+  /trainer/sessions:
+    get: { summary: Get session history, responses: { '200': { description: History } } }
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [OWNER, MEMBER, TRAINER] }
+        phone: { type: string }
+
+    Member:
+      type: object
+      properties:
+        id: { type: string }
+        joinDate: { type: string, format: date-time }
+        plan: { type: string, enum: [BASIC, PRO, ELITE] }
+        planStatus: { type: string, enum: [ACTIVE, EXPIRED, CANCELLED] }
+        sessionsRemaining: { type: integer }
+        age: { type: integer }
+        gender: { type: string }
+        trainerId: { type: string }
+
+    Trainer:
+      type: object
+      properties:
+        id: { type: string }
+        specialization: { type: string }
+        availability: { type: string }
+        schedule: { type: object }
+
+    Booking:
+      type: object
+      properties:
+        id: { type: string }
+        trainerId: { type: string }
+        trainerName: { type: string }
+        date: { type: string, format: date-time }
+        time: { type: string }
+        status: { type: string, enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED] }
+
+    Invoice:
+      type: object
+      properties:
+        id: { type: string }
+        memberId: { type: string }
+        plan: { type: string }
+        amount: { type: number }
+        date: { type: string, format: date-time }
+        status: { type: string, enum: [PAID, PENDING, CANCELLED] }
+
+    AttendanceRecord:
+      type: object
+      properties:
+        id: { type: string }
+        date: { type: string, format: date }
+        checkIn: { type: string }
+        checkOut: { type: string }
+
+    WorkoutPlan:
+      type: object
+      properties:
+        id: { type: string }
+        day: { type: string }
+        notes: { type: string }
+        exercises:
+          type: array
+          items: { $ref: '#/components/schemas/Exercise' }
+
+    Exercise:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        sets: { type: integer }
+        reps: { type: string }
+        rest: { type: string }
+
+    Equipment:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        status: { type: string }
+        lastMaintenance: { type: string, format: date-time }
